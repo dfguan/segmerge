@@ -294,14 +294,14 @@ int merge_alns_core2(eg_hit_t *rht, size_t s, size_t e, uint32_t gs, sdict_t *tn
 }
 
 
-int merge_alns_core(eg_hit_t *rht, size_t s, size_t e, sdict_t *tn)
+int merge_alns_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t *tn)
 {
 	size_t i, j;
 	uint32_t rtn;
 	for ( i = j = s; i <= e; ++i) {
 		if (i == e || (rht[j].tns >> 32) != (rht[i].tns >> 32)) {
 			/*print_hits(rht, j,i, tn);*/
-			rtn = merge_alns_core2(rht, j, i, 15000, tn);
+			rtn = merge_alns_core2(rht, j, i, max_gs, tn);
 			/*if (~rtn) print_hit(rht+rtn, tn);*/
 			j = i;	
 		} 
@@ -314,12 +314,12 @@ int merge_alns_core(eg_hit_t *rht, size_t s, size_t e, sdict_t *tn)
  * @brief   merge alignments if they are aligned closed to each other 
  * @alg     prev cur , check if cur is contained in prev if so delete cur, otherwise c            heck if cur can be merged with prev, if so change coordinates, delete cur, otherwise prev = cur, cur = next 
  */
-int merge_alns(eg_hit_t *rht, uint64_t *idx, size_t n_idx, sdict_t *tn)
+int merge_alns(eg_hit_t *rht, uint64_t *idx, size_t n_idx, uint32_t max_gs, sdict_t *tn)
 {
 	size_t j;
 	/*#pragma parallel for number_threads(4)*/
 	for (j = 0; j < n_idx; ++j) {
-		merge_alns_core(rht , idx[j] >> 32, (idx[j] >> 32) + (uint32_t)idx[j], tn); 
+		merge_alns_core(rht , idx[j] >> 32, (idx[j] >> 32) + (uint32_t)idx[j], max_gs, tn); 
 	}
 	return 0;
 }
@@ -468,7 +468,7 @@ eg_hit_t *eg_hit_read(char *paf_fn, sdict_t* tn, size_t *n, uint32_t min_match)
 		p->tns = (uint64_t)sd_put(tn, r.tn, r.tl) << 32 | r.ts;
 		p->tl = r.tl; p->te = r.te;
 		p->rev = r.rev; p->ml = r.ml; p->bl = r.bl; 	
-		p->con = 0; p->del = 0; 	
+		p->con = 0; p->del = 0;	
 	}
 	paf_close(fp);
 	*n = h.n;
@@ -509,7 +509,7 @@ int main(int argc, char *argv[])
 	eg_hits_t *rhts = eg_init();
 
 	/*fprintf(stderr,"[M::%s] parsing paf...\n", __func__);*/
-	rhts->rht = eg_hit_read(opts.paf_fn, rn, &rhts->n, 3000);		
+	rhts->rht = eg_hit_read(opts.paf_fn, rn, &rhts->n, opts.min_bl);		
 	/*print_hits(rhts->rht, 0, rhts->n, rn);*/
 	/*fprintf(stderr, "%llu\n", rhts->n);	*/
 	/*fprintf(stderr,"[M::%s] indexing query...\n", __func__);*/
@@ -523,7 +523,7 @@ int main(int argc, char *argv[])
 	mt_sort(rhts->rht, rhts->idx, n_ind, cmp_qtn);
 	//merge near alns
 	/*fprintf(stderr,"[M::%s] merging alignments...\n", __func__);*/
-	merge_alns(rhts->rht, rhts->idx, n_ind, rn);
+	merge_alns(rhts->rht, rhts->idx, n_ind, rn, opts.max_gs);
 	print_hits(rhts->rht, 0, rhts->n, rn);
 	/*print_hits(rhts->rht, rhts->n, rn);*/
 	//rm not engouh mapped length and ! OVLP and internal matching, update coordination

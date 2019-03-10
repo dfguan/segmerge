@@ -23,13 +23,13 @@
 
 int help()
 {
-	fprintf(stderr, "\nUsage: update [options] <GFA> <PAF>\n");
+	fprintf(stderr, "\nUsage: update [options] <PAF>\n");
 	fprintf(stderr, "Options:\n");	
-	fprintf(stderr, "         -r    FLOAT    minimum overlap ratio for an alignment [0.8]\n");	
-	fprintf(stderr, "         -m    INT      maximum overhangs [1000]\n");
-	fprintf(stderr, "         -M    INT      minimum mapped length [5000]\n")	;
-	fprintf(stderr, "         -O    STR      output file format: GFA, FASTA [GFA]\n");
-	fprintf(stderr, "         -o    FILE     output file [stdout]\n");
+	/*fprintf(stderr, "         -r    FLOAT    minimum overlap ratio for an alignment [0.8]\n");	*/
+	fprintf(stderr, "         -m    INT      minimum alignment block length [3K]\n");
+	fprintf(stderr, "         -M    INT      maximum gap size for a chaining [20K]\n")	;
+	/*fprintf(stderr, "         -O    STR      output file format: GFA, FASTA [GFA]\n");*/
+	/*fprintf(stderr, "         -o    FILE     output file [stdout]\n");*/
 
 	fprintf(stderr, "         -h             help\n")	;
 	return 0;
@@ -37,29 +37,26 @@ int help()
 
 int parse_args(int argc, char *argv[], opt *o)
 {
-	o->max_oh = 1000;
-	o->ratio = 0.8;
-	o->min_ovlp = 5000;
-	o->out = NULL;
-	o->fmt = 1;
+	o->max_gs = 20000;
+	o->min_bl = 3000;
 	int c;
-	while ((c = getopt(argc, argv, "r:m:M:o:O:h")) != -1) {
+	while ((c = getopt(argc, argv, "m:M:h")) != -1) {
 		switch (c) {
-			case 'r':
-				o->ratio = strtof(optarg, NULL);
-				break;
+			/*case 'r':*/
+				/*o->ratio = strtof(optarg, NULL);*/
+				/*break;*/
 			case 'M':
-				o->max_oh = atoi(optarg);
+				o->max_gs = atoi(optarg);
 				break;
 			case 'm':
-				o->min_ovlp = atoi(optarg);
+				o->min_bl = atoi(optarg);
 				break;
-			case 'O':
-				if (!strcmp("FASTA", optarg))
-					o->fmt = 0;
-				break;
-			case 'o':
-				o->out = optarg;
+			/*case 'O':*/
+				/*if (!strcmp("FASTA", optarg))*/
+					/*o->fmt = 0;*/
+				/*break;*/
+			/*case 'o':*/
+				/*o->out = optarg;*/
 			case 'h':
 				help();
 				return 1;
@@ -69,26 +66,12 @@ int parse_args(int argc, char *argv[], opt *o)
 				return 1;
 		}
 	}	
-	if (optind + 2 > argc) {
-		fprintf(stderr,"[E::%s] neither gfa nor paf file can be omitted!\n", __func__);
+	if (optind + 1 > argc) {
+		fprintf(stderr,"[E::%s] paf file can be omitted!\n", __func__);
 		help();
 		return 1;
-	} else {
-		o->gfa_fn = argv[optind++];
-		o->paf_fn = argv[optind];
-	}
+	} 
+	o->paf_fn = argv[optind];
 	return 0;
 }
-
-/*opt *init_opt() */
-/*{*/
-	/*opt *o = (opt *)calloc(sizeof())*/
-
-/*}*/
-/*int destroy_opt(opt *o)*/
-/*{*/
-	/*if (o->)*/
-
-
-/*}*/
 
