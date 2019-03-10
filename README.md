@@ -1,0 +1,2 @@
+# segmerge
+merge split alignments
