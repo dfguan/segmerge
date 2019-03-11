@@ -109,24 +109,24 @@ uint32_t f_tn (eg_hit_t *r)
  * @brief index alignments according to fun
  */
 
-uint64_t *hit_index(eg_hit_t *rht, size_t n_rht, size_t *n_idx, uint32_t (*f)(eg_hit_t *))
+uint64_t *hit_index(eg_hit_t *rht, size_t n_rht, size_t n_idx, uint32_t (*f)(eg_hit_t *))
 {
-	uint64_t *idx = (uint64_t *)calloc(*n_idx, sizeof(uint64_t)); //don't use malloc here cause some of the n_idx doesn't have value or pass **idx here, 
+	uint64_t *idx = (uint64_t *)calloc(n_idx, sizeof(uint64_t)); //don't use malloc here cause some of the n_idx doesn't have value or pass **idx here, 
 	if (!idx) {
-		fprintf(stderr, "[E::%s] failed to allocate memory space, required %lu\n", __func__, *n_idx * sizeof(uint64_t));
+		fprintf(stderr, "[E::%s] failed to allocate memory space, required %lu\n", __func__, n_idx * sizeof(uint64_t));
 		exit(1);
 	}
 	
 	/*fprintf(stderr, "%p\n",idx);*/
 	size_t i, last;
-	*n_idx = 0;
+	n_idx = 0;
 	for (i=1, last = 0; i <= n_rht; ++i) {
-		if (i == n_rht || f(rht+i) != f(rht + i-1)) {
+		if (i == n_rht || f(rht+i) != f(rht + last)) {
 			/*fprintf(stderr, "%u\t%u\n", i, last);*/
-			idx[f(rht+i-1)] = (uint64_t)last << 32 | (i - last); //don't forget the left bracket here !!!
+			idx[f(rht+last)] = (uint64_t)last << 32 | (i - last); //don't forget the left bracket here !!!
 			/*fprintf(stderr, "%u\n", f(rht+i-1));	*/
 			last = i;
-			++*n_idx;
+			/*++*n_idx;*/
 		}
 	}
 	/*for(i = 0; i <*n_idx; ++i)	fprintf(stderr, "this:%u\t%u\t%u\n", i, idx[i]>>32, (uint32_t)idx[i]);*/
@@ -222,7 +222,7 @@ int mt_sort(eg_hit_t *rht, uint64_t *idx, size_t n_ind, int (*cmp) (const void *
 	/*return 0;*/
 /*}*/
 
-int merge_alns_core2(eg_hit_t *rht, size_t s, size_t e, uint32_t gs, sdict_t *tn)
+int merge_seg_core2(eg_hit_t *rht, size_t s, size_t e, uint32_t gs, sdict_t *tn)
 {
     /*
      qry -----------------
@@ -294,14 +294,17 @@ int merge_alns_core2(eg_hit_t *rht, size_t s, size_t e, uint32_t gs, sdict_t *tn
 }
 
 
-int merge_alns_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t *tn)
+int merge_seg_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t *tn)
 {
 	size_t i, j;
 	uint32_t rtn;
+			/*print_hits(rht, s,e, tn);*/
 	for ( i = j = s; i <= e; ++i) {
 		if (i == e || (rht[j].tns >> 32) != (rht[i].tns >> 32)) {
+			/*fprintf(stdout, "index %d\t%d\n", j, i);*/
+
 			/*print_hits(rht, j,i, tn);*/
-			rtn = merge_alns_core2(rht, j, i, max_gs, tn);
+			rtn = merge_seg_core2(rht, j, i, max_gs, tn);
 			/*if (~rtn) print_hit(rht+rtn, tn);*/
 			j = i;	
 		} 
@@ -310,16 +313,16 @@ int merge_alns_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t 
 }
 
 /**
- * @func    merge_alns
- * @brief   merge alignments if they are aligned closed to each other 
- * @alg     prev cur , check if cur is contained in prev if so delete cur, otherwise c            heck if cur can be merged with prev, if so change coordinates, delete cur, otherwise prev = cur, cur = next 
+ * @func    merge_segs
+ * @brief   merge segment if they are aligned closed to each other 
+ * @alg     construct alignment graph, and find paths.  
  */
-int merge_alns(eg_hit_t *rht, uint64_t *idx, size_t n_idx, uint32_t max_gs, sdict_t *tn)
+int merge_segs(eg_hit_t *rht, uint64_t *idx, size_t n_idx, uint32_t max_gs, sdict_t *tn)
 {
 	size_t j;
 	/*#pragma parallel for number_threads(4)*/
 	for (j = 0; j < n_idx; ++j) {
-		merge_alns_core(rht , idx[j] >> 32, (idx[j] >> 32) + (uint32_t)idx[j], max_gs, tn); 
+		merge_seg_core(rht , idx[j] >> 32, (idx[j] >> 32) + (uint32_t)idx[j], max_gs, tn); 
 	}
 	return 0;
 }
@@ -514,7 +517,7 @@ int main(int argc, char *argv[])
 	/*fprintf(stderr, "%llu\n", rhts->n);	*/
 	/*fprintf(stderr,"[M::%s] indexing query...\n", __func__);*/
 	size_t n_ind = rn->n_seq;
-	rhts->idx = hit_index(rhts->rht, rhts->n, &n_ind, f_qn);
+	rhts->idx = hit_index(rhts->rht, rhts->n, n_ind, f_qn);
 	/*fprintf(stderr, "%p\n", rhts->idx);*/
 	/*size_t i = 0;*/
 	/*for ( i = 0; i < n_ind; ++i) { fprintf(stderr, "%u : %u\n", rhts->idx[i]>>32, (uint32_t)rhts->idx[i]); }	*/
@@ -523,7 +526,8 @@ int main(int argc, char *argv[])
 	mt_sort(rhts->rht, rhts->idx, n_ind, cmp_qtn);
 	//merge near alns
 	/*fprintf(stderr,"[M::%s] merging alignments...\n", __func__);*/
-	merge_alns(rhts->rht, rhts->idx, n_ind, rn, opts.max_gs);
+	/*print_hits(rhts->rht, 0, rhts->n, rn);*/
+	merge_segs(rhts->rht, rhts->idx, n_ind, opts.max_gs, rn);
 	print_hits(rhts->rht, 0, rhts->n, rn);
 	/*print_hits(rhts->rht, rhts->n, rn);*/
 	//rm not engouh mapped length and ! OVLP and internal matching, update coordination
@@ -559,6 +563,7 @@ int main(int argc, char *argv[])
 	
 	/*if (opts.out) fclose(fp_out);*/
 	if (rhts) eg_destroy(rhts);	
+	sd_destroy(rn);	
 	/*if (gf) gfa_destroy(gf);*/
 	/*if (ug) gfa_destroy(ug);*/
 	return 0;	

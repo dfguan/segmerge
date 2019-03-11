@@ -27,7 +27,7 @@ int help()
 	fprintf(stderr, "Options:\n");	
 	/*fprintf(stderr, "         -r    FLOAT    minimum overlap ratio for an alignment [0.8]\n");	*/
 	fprintf(stderr, "         -m    INT      minimum alignment block length [3K]\n");
-	fprintf(stderr, "         -M    INT      maximum gap size for a chaining [20K]\n")	;
+	fprintf(stderr, "         -M    INT      maximum gap size for chaining [20K]\n")	;
 	/*fprintf(stderr, "         -O    STR      output file format: GFA, FASTA [GFA]\n");*/
 	/*fprintf(stderr, "         -o    FILE     output file [stdout]\n");*/
 
