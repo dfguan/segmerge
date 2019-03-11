@@ -71,13 +71,13 @@ int print_hit(eg_hit_t *rht, sdict_t *tn)
  * @brief  print
  */
 
-int print_hits(eg_hit_t *rht, size_t s, size_t e, sdict_t *tn)
+int print_hits(eg_hit_t *rht, size_t s, size_t e, sdict_t *qn, sdict_t *tn)
 {
 	size_t i;
 	/*fprintf(stderr, "Order: QID\tQLEN\tQS\tQE\tTID\tTLEN\tTS\tTE\n");*/
 	for (i = s; i < e; ++i) { 
 		/*if (!rht[i].del) fprintf(stdout, "%u: %s\t%u\t%u\t%u\t%c\t%s\t%u\t%u\t%u\t%d\t%d\n", i, tn->seq[rht[i].qns >> 32].name, rht[i].ql, (uint32_t)rht[i].qns, rht[i].qe, rht[i].rev?'-':'+', tn->seq[rht[i].tns>>32].name, rht[i].tl, (uint32_t) rht[i].tns , rht[i].te, rht[i].tail, rht[i].con);*/
-		if (!rht[i].del) fprintf(stdout, "%s\t%u\t%u\t%u\t%c\t%s\t%u\t%u\t%u\t%d\t%d\n", tn->seq[rht[i].qns >> 32].name, rht[i].ql, (uint32_t)rht[i].qns, rht[i].qe, rht[i].rev?'-':'+', tn->seq[rht[i].tns>>32].name, rht[i].tl, (uint32_t) rht[i].tns , rht[i].te, rht[i].bl, rht[i].ml);
+		if (!rht[i].del) fprintf(stdout, "%s\t%u\t%u\t%u\t%c\t%s\t%u\t%u\t%u\t%d\t%d\n", qn->seq[rht[i].qns >> 32].name, rht[i].ql, (uint32_t)rht[i].qns, rht[i].qe, rht[i].rev?'-':'+', tn->seq[rht[i].tns>>32].name, rht[i].tl, (uint32_t) rht[i].tns , rht[i].te, rht[i].bl, rht[i].ml);
 	}
 	return 0;
 }
@@ -222,7 +222,7 @@ int mt_sort(eg_hit_t *rht, uint64_t *idx, size_t n_ind, int (*cmp) (const void *
 	/*return 0;*/
 /*}*/
 
-int merge_seg_core2(eg_hit_t *rht, size_t s, size_t e, uint32_t gs, sdict_t *tn)
+int merge_seg_core2(eg_hit_t *rht, size_t s, size_t e, uint32_t gs, sdict_t *qn, sdict_t *tn)
 {
     /*
      qry -----------------
@@ -294,7 +294,7 @@ int merge_seg_core2(eg_hit_t *rht, size_t s, size_t e, uint32_t gs, sdict_t *tn)
 }
 
 
-int merge_seg_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t *tn)
+int merge_seg_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t *qn, sdict_t *tn)
 {
 	size_t i, j;
 	uint32_t rtn;
@@ -304,7 +304,7 @@ int merge_seg_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t *
 			/*fprintf(stdout, "index %d\t%d\n", j, i);*/
 
 			/*print_hits(rht, j,i, tn);*/
-			rtn = merge_seg_core2(rht, j, i, max_gs, tn);
+			rtn = merge_seg_core2(rht, j, i, max_gs, qn, tn);
 			/*if (~rtn) print_hit(rht+rtn, tn);*/
 			j = i;	
 		} 
@@ -317,12 +317,12 @@ int merge_seg_core(eg_hit_t *rht, size_t s, size_t e, uint32_t max_gs, sdict_t *
  * @brief   merge segment if they are aligned closed to each other 
  * @alg     construct alignment graph, and find paths.  
  */
-int merge_segs(eg_hit_t *rht, uint64_t *idx, size_t n_idx, uint32_t max_gs, sdict_t *tn)
+int merge_segs(eg_hit_t *rht, uint64_t *idx, size_t n_idx, uint32_t max_gs, sdict_t *qn, sdict_t *tn)
 {
 	size_t j;
 	/*#pragma parallel for number_threads(4)*/
 	for (j = 0; j < n_idx; ++j) {
-		merge_seg_core(rht , idx[j] >> 32, (idx[j] >> 32) + (uint32_t)idx[j], max_gs, tn); 
+		merge_seg_core(rht , idx[j] >> 32, (idx[j] >> 32) + (uint32_t)idx[j], max_gs, qn, tn); 
 	}
 	return 0;
 }
@@ -443,10 +443,10 @@ int update_cords(eg_hit_t *rht, size_t n_rht)
 
 
 /**
- * @func    eg_hit_read
+ * @func    hit_read
  * @brief   read alns from paf file *
  */
-eg_hit_t *eg_hit_read(char *paf_fn, sdict_t* tn, size_t *n, uint32_t min_match)
+eg_hit_t *hit_read(char *paf_fn, sdict_t *qn, sdict_t* tn, size_t *n, uint32_t min_match, int is_s2s)
 {
 	
 	paf_file_t *fp;
@@ -463,10 +463,10 @@ eg_hit_t *eg_hit_read(char *paf_fn, sdict_t* tn, size_t *n, uint32_t min_match)
 			/*fprintf(stderr, "[W::%s] query name %s not found in GFA file, won't be saved\n", __func__, r.qn);*/
 			/*continue;*/
 		/*}*/
-		if (r.ml <= min_match || strcmp(r.qn, r.tn) >= 0) continue; //self alignment
+		if (r.ml <= min_match || (is_s2s && strcmp(r.qn, r.tn) >= 0)) continue; //self alignment
 		eg_hit_t *p;
 		kv_pushp(eg_hit_t, h, &p);
-		p->qns = (uint64_t)sd_put(tn, r.qn, r.ql)<<32 | r.qs;	
+		p->qns = (uint64_t)sd_put(qn, r.qn, r.ql)<<32 | r.qs;	
 		p->ql = r.ql; p->qe = r.qe;
 		p->tns = (uint64_t)sd_put(tn, r.tn, r.tl) << 32 | r.ts;
 		p->tl = r.tl; p->te = r.te;
@@ -508,15 +508,16 @@ int main(int argc, char *argv[])
 	/*gfa_t *gf = gfa_read(opts.gfa_fn);*/
 	/*gfa_print(gf, stdout, 1);*/
 	//read alns from paf file
-	sdict_t *rn = sd_init();
+	sdict_t *qn = sd_init();
+	sdict_t *tn = sd_init();
 	eg_hits_t *rhts = eg_init();
 
 	/*fprintf(stderr,"[M::%s] parsing paf...\n", __func__);*/
-	rhts->rht = eg_hit_read(opts.paf_fn, rn, &rhts->n, opts.min_bl);		
+	rhts->rht = hit_read(opts.paf_fn, qn, tn, &rhts->n, opts.min_bl, opts.s2s);		
 	/*print_hits(rhts->rht, 0, rhts->n, rn);*/
 	/*fprintf(stderr, "%llu\n", rhts->n);	*/
 	/*fprintf(stderr,"[M::%s] indexing query...\n", __func__);*/
-	size_t n_ind = rn->n_seq;
+	size_t n_ind = qn->n_seq;
 	rhts->idx = hit_index(rhts->rht, rhts->n, n_ind, f_qn);
 	/*fprintf(stderr, "%p\n", rhts->idx);*/
 	/*size_t i = 0;*/
@@ -527,8 +528,8 @@ int main(int argc, char *argv[])
 	//merge near alns
 	/*fprintf(stderr,"[M::%s] merging alignments...\n", __func__);*/
 	/*print_hits(rhts->rht, 0, rhts->n, rn);*/
-	merge_segs(rhts->rht, rhts->idx, n_ind, opts.max_gs, rn);
-	print_hits(rhts->rht, 0, rhts->n, rn);
+	merge_segs(rhts->rht, rhts->idx, n_ind, opts.max_gs, qn, tn);
+	print_hits(rhts->rht, 0, rhts->n, qn, tn);
 	/*print_hits(rhts->rht, rhts->n, rn);*/
 	//rm not engouh mapped length and ! OVLP and internal matching, update coordination
 	/*fprintf(stderr,"[M::%s] filtering alignments...\n", __func__);*/
@@ -563,7 +564,8 @@ int main(int argc, char *argv[])
 	
 	/*if (opts.out) fclose(fp_out);*/
 	if (rhts) eg_destroy(rhts);	
-	sd_destroy(rn);	
+	sd_destroy(qn);	
+	sd_destroy(tn);	
 	/*if (gf) gfa_destroy(gf);*/
 	/*if (ug) gfa_destroy(ug);*/
 	return 0;	

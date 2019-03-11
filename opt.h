@@ -29,6 +29,7 @@ typedef struct {
 	//char *out;//output file
 	//int32_t min_ovlp:31, fmt:1;//minimum overlap
 	int32_t min_bl;
+	int 	s2s;
 	int32_t max_gs;
 }opt;
 int parse_args(int argc, char *argv[], opt *o);

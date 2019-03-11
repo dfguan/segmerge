@@ -28,6 +28,7 @@ int help()
 	/*fprintf(stderr, "         -r    FLOAT    minimum overlap ratio for an alignment [0.8]\n");	*/
 	fprintf(stderr, "         -m    INT      minimum alignment block length [3K]\n");
 	fprintf(stderr, "         -M    INT      maximum gap size for chaining [20K]\n")	;
+	fprintf(stderr, "         -r             read to reference alignment [NO]\n")	;
 	/*fprintf(stderr, "         -O    STR      output file format: GFA, FASTA [GFA]\n");*/
 	/*fprintf(stderr, "         -o    FILE     output file [stdout]\n");*/
 
@@ -39,8 +40,9 @@ int parse_args(int argc, char *argv[], opt *o)
 {
 	o->max_gs = 20000;
 	o->min_bl = 3000;
+	o->s2s = 1;
 	int c;
-	while ((c = getopt(argc, argv, "m:M:h")) != -1) {
+	while ((c = getopt(argc, argv, "m:M:rh")) != -1) {
 		switch (c) {
 			/*case 'r':*/
 				/*o->ratio = strtof(optarg, NULL);*/
@@ -50,6 +52,9 @@ int parse_args(int argc, char *argv[], opt *o)
 				break;
 			case 'm':
 				o->min_bl = atoi(optarg);
+				break;
+			case 'r':
+				o->s2s = 0;
 				break;
 			/*case 'O':*/
 				/*if (!strcmp("FASTA", optarg))*/
