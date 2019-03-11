@@ -328,24 +328,21 @@ int merge_segs(eg_hit_t *rht, uint64_t *idx, size_t n_idx, uint32_t max_gs, sdic
 }
 /**
  * @func   rm_neml
- * @brief  remove alignments without enough mapped length or internal match (not sure if appropriate)
- *
+ * @brief  remove nested alignments 
+ * @comm   not as efficient as I want but have no idea to improve it
  */
 #define MAX_LEFT 5000 //maybe use fraction
-int flt_alns(eg_hit_t *rht, size_t n_rht, int min_ovlp, float int_fract)
+int flt_alns(eg_hit_t *rht, size_t n_rht)
 {
-	uint64_t i = 0;
+	size_t i = 0, j = 0;
 	for (i = 0; i < n_rht; ++i) {
-		//not deleted and not at the end of reference  
-		if (!rht[i].del) {
-				int32_t ovlp = rht[i].qe - (int32_t)rht[i].qns;
-				if (ovlp < min_ovlp || ovlp < rht[i].ql * int_fract ) {
-					if ((uint32_t)rht[i].tns > MAX_LEFT && rht[i].tl - rht[i].te > MAX_LEFT) 
-						rht[i].tail = 0, rht[i].del = 1;
-					else 
-						rht[i].tail = 1;
-				} else rht[i].tail = 0; 
-		}
+		if (!rht[i].del) 
+			for (j = i + 1; j < n_rht; ++j) {
+				uint32_t qs = (uint32_t)rht[j].qns;  
+				if (qs > rht[i].qe) break;
+				if (rht[j].qe < rht[i].qe && (rht[j].tns >> 32) == (rht[i].tns >> 32) && (uint32_t)rht[j].tns >= (uint32_t)rht[i].tns && rht[j].te <= rht[i].te)  
+					rht[j].del = 1;			
+			} 
 	}
 	return 0;
 }
@@ -410,11 +407,10 @@ int set_cont(eg_hit_t *rht, uint64_t *idx, size_t n_idx)
 size_t cleanup_alns(eg_hit_t *rht, size_t n_rht)
 {
 	size_t i, j;
-	size_t n_del = 0;
 	for (i = 0, j = 0; i < n_rht; ++i) 
 		if (!rht[i].del) 
-			rht[j++] = rht[i], ++n_del;
-	return n_rht - n_del;
+			rht[j++] = rht[i];
+	return j;
 }
 
 /**
@@ -529,18 +525,18 @@ int main(int argc, char *argv[])
 	/*fprintf(stderr,"[M::%s] merging alignments...\n", __func__);*/
 	/*print_hits(rhts->rht, 0, rhts->n, rn);*/
 	merge_segs(rhts->rht, rhts->idx, n_ind, opts.max_gs, qn, tn);
-	print_hits(rhts->rht, 0, rhts->n, qn, tn);
 	/*print_hits(rhts->rht, rhts->n, rn);*/
 	//rm not engouh mapped length and ! OVLP and internal matching, update coordination
 	/*fprintf(stderr,"[M::%s] filtering alignments...\n", __func__);*/
-	/*flt_alns(rhts->rht, rhts->n, opts.min_ovlp, opts.ratio);*/
 	//print kept alns probably only one or two alignment was kept 
 	//clean up	
 		
-	/*rhts->n = cleanup_alns(rhts->rht, rhts->n);*/
+	rhts->n = cleanup_alns(rhts->rht, rhts->n);
 	//sort according to tn,ts,te
 	/*fprintf(stderr, "%lu\t%lu\n", rhts->n, sizeof(eg_hit_t));*/
-	/*qsort(rhts->rht, rhts->n, sizeof(eg_hit_t), cmp_t);	*/
+	qsort(rhts->rht, rhts->n, sizeof(eg_hit_t), cmp_q);	
+	flt_alns(rhts->rht, rhts->n);
+	print_hits(rhts->rht, 0, rhts->n, qn, tn);
 	//index target here
 	/*if (rhts->idx) free(rhts->idx);*/
 	/*rhts->idx = hit_index(rhts->rht, rhts->n, &n_ind, f_tn);*/
